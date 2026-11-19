@@ -44,6 +44,7 @@ jobs:
         run: |
           PGPASSWORD=ci_admin_password psql -h localhost -U acme_admin -d acme_test -c "CREATE ROLE acme_app LOGIN PASSWORD 'ci_app_password';"
           PGPASSWORD=ci_admin_password psql -h localhost -U acme_admin -d acme_test -c "GRANT CONNECT ON DATABASE acme_test TO acme_app; GRANT USAGE ON SCHEMA public TO acme_app;"
+      - run: npx --workspace=@acme/api prisma generate
       - run: npm run typecheck
       - run: npm run build
       - run: npm run test:unit

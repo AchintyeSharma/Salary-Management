@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HrAccount {
+  id           Int              @id @default(autoincrement())
+  email        String           @unique
+  displayName  String           @map("display_name")
+  passwordHash String           @map("password_hash")
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  sessions     HrSession[]
+  revisions    SalaryRevision[]
+
+  @@map("hr_accounts")
+}
+
+model HrSession {
+  id        String    @id
+  accountId Int       @map("account_id")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  account   HrAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("hr_sessions")
+}
+
+model Employee {
+  id                 Int              @id @default(autoincrement())
+  employeeNumber     String           @unique @map("employee_number")
+  displayName        String           @map("display_name")
+  countryCode        String           @map("country_code")
+  departmentCode     String           @map("department_code")
+  levelCode          String           @map("level_code")
+  active             Boolean          @default(true)
+  salaryCurrency     String           @map("salary_currency")
+  currentSalaryMinor BigInt           @map("current_salary_minor")
+  version            Int              @default(1)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  revisions          SalaryRevision[]
+
+  @@map("employees")
+}
+
+model SalaryRevision {
+  id                  Int       @id @default(autoincrement())
+  employeeId          Int       @map("employee_id")
+  sequence            Int
+  previousSalaryMinor BigInt?   @map("previous_salary_minor")
+  newSalaryMinor      BigInt    @map("new_salary_minor")
+  currencyCode        String    @map("currency_code")
+  reasonCode          String    @map("reason_code")
+  actorAccountId      Int       @map("actor_account_id")
+  requestKey          String?   @map("request_key")
+  requestFingerprint  String?   @map("request_fingerprint")
+  recordedAt          DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  actor               HrAccount @relation(fields: [actorAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, sequence])
+  @@unique([employeeId, actorAccountId, requestKey])
+  @@map("salary_revisions")
+}
+
+model FxSnapshot {
+  id          String   @id
+  asOfDate    DateTime @map("as_of_date") @db.Date
+  sourceLabel String   @map("source_label")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  rates       FxRate[]
+
+  @@map("fx_snapshots")
+}
+
+model FxRate {
+  snapshotId   String     @map("snapshot_id")
+  currencyCode String     @map("currency_code")
+  rateToUsd    Decimal    @map("rate_to_usd") @db.Decimal(18, 8)
+  snapshot     FxSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@id([snapshotId, currencyCode])
+  @@map("fx_rates")
+}
+
+model SeedMarker {
+  seedVersion   String   @id @map("seed_version")
+  employeeCount Int      @map("employee_count")
+  referenceDate DateTime @map("reference_date") @db.Date
+  appliedAt     DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  @@map("seed_markers")
+}
