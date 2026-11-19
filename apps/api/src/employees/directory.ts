@@ -13,6 +13,12 @@ import {
 } from '@acme/contracts';
 import { AppError } from '../errors.js';
 import { mapEmployeeDetail, mapEmployeeSummary } from './mappers.js';
+import {
+  createEmployeeWithOpeningSalary,
+  patchEmployeeProfileOrStatus,
+  recordSalaryRevision,
+  type WriteFaultHooks,
+} from './writes.js';
 
 function buildOrderBy(
   sortBy: EmployeeSortField,
@@ -80,8 +86,25 @@ export function createLookupsRouter(prisma: PrismaClient): Router {
   return router;
 }
 
-export function createEmployeeDirectoryRouter(prisma: PrismaClient): Router {
+export function createEmployeeDirectoryRouter(
+  prisma: PrismaClient,
+  writeFaultHooks?: WriteFaultHooks,
+): Router {
   const router = Router();
+
+  router.post('/', async (req, res, next) => {
+    try {
+      const created = await createEmployeeWithOpeningSalary(
+        prisma,
+        req.body,
+        req.hrAccount!.id,
+        writeFaultHooks,
+      );
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
+    }
+  });
 
   router.get('/', async (req, res, next) => {
     try {
@@ -165,6 +188,38 @@ export function createEmployeeDirectoryRouter(prisma: PrismaClient): Router {
       }
 
       res.status(200).json(mapEmployeeDetail(employee));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/:id', async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new AppError(400, 'INVALID_ID', 'Employee ID must be a positive integer.');
+      }
+      const updated = await patchEmployeeProfileOrStatus(prisma, id, req.body);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/:id/salary-revisions', async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new AppError(400, 'INVALID_ID', 'Employee ID must be a positive integer.');
+      }
+      const result = await recordSalaryRevision(
+        prisma,
+        id,
+        req.body,
+        req.hrAccount!.id,
+        writeFaultHooks,
+      );
+      res.status(result.replayed ? 200 : 201).json(result);
     } catch (err) {
       next(err);
     }

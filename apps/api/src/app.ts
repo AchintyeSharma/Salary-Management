@@ -15,6 +15,7 @@ import {
 import { loadConfig, type AppConfig } from './config.js';
 import { checkDatabaseConnection } from './db/prisma.js';
 import { createEmployeeDirectoryRouter, createLookupsRouter } from './employees/directory.js';
+import type { WriteFaultHooks } from './employees/writes.js';
 import { AppError } from './errors.js';
 
 export interface AppDependencies {
@@ -23,6 +24,7 @@ export interface AppDependencies {
   checkDatabase?: () => Promise<boolean>;
   staticDir?: string;
   loginRateLimitMax?: number;
+  writeFaultHooks?: WriteFaultHooks;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -95,7 +97,12 @@ export function createApp(deps: AppDependencies = {}) {
       }),
     );
     app.use('/api/lookups', requireAuth, createLookupsRouter(deps.prisma));
-    app.use('/api/employees', requireAuth, sameOrigin, createEmployeeDirectoryRouter(deps.prisma));
+    app.use(
+      '/api/employees',
+      requireAuth,
+      sameOrigin,
+      createEmployeeDirectoryRouter(deps.prisma, deps.writeFaultHooks),
+    );
   }
 
   // Serve built React bundle from the same origin when present.

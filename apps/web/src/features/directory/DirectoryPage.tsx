@@ -31,9 +31,11 @@ import {
   type LevelCode,
 } from '@acme/contracts';
 import { fetchEmployees, fetchLookups } from '../../api/client';
+import { AddEmployeeDialog } from './AddEmployeeDialog';
 
 export function DirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [addOpen, setAddOpen] = useState(false);
 
   const urlSearch = searchParams.get('search') ?? '';
   const country = (searchParams.get('country') || undefined) as CountryCode | undefined;
@@ -102,7 +104,12 @@ export function DirectoryPage() {
             Search and filter annual gross base salaries across ACME’s workforce.
           </Typography>
         </Box>
+        <Button variant="contained" onClick={() => setAddOpen(true)}>
+          Add employee
+        </Button>
       </Stack>
+
+      <AddEmployeeDialog open={addOpen} onClose={() => setAddOpen(false)} lookups={lookupsQuery.data} />
 
       <Paper sx={{ p: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>

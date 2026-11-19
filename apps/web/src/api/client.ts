@@ -1,9 +1,13 @@
 import type {
+  CreateEmployeeRequest,
+  CreateSalaryRevisionRequest,
   EmployeeDetailDto,
   EmployeeListQuery,
   EmployeeListResponse,
   LoginRequest,
   LookupsResponse,
+  PatchEmployeeRequest,
+  SalaryRevisionDto,
   SessionInfo,
 } from '@acme/contracts';
 
@@ -98,4 +102,37 @@ export function fetchEmployees(query: Partial<EmployeeListQuery>): Promise<Emplo
 
 export function fetchEmployeeDetail(id: number): Promise<EmployeeDetailDto> {
   return apiRequest<EmployeeDetailDto>(`/api/employees/${id}`);
+}
+
+export function createEmployee(body: CreateEmployeeRequest): Promise<EmployeeDetailDto> {
+  return apiRequest<EmployeeDetailDto>('/api/employees', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function patchEmployee(
+  id: number,
+  body: PatchEmployeeRequest,
+): Promise<EmployeeDetailDto> {
+  return apiRequest<EmployeeDetailDto>(`/api/employees/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export interface SalaryRevisionResponse {
+  employee: EmployeeDetailDto;
+  revision: SalaryRevisionDto;
+  replayed: boolean;
+}
+
+export function createSalaryRevision(
+  id: number,
+  body: CreateSalaryRevisionRequest,
+): Promise<SalaryRevisionResponse> {
+  return apiRequest<SalaryRevisionResponse>(`/api/employees/${id}/salary-revisions`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
