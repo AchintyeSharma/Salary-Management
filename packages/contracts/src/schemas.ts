@@ -153,3 +153,54 @@ export const createSalaryRevisionSchema = z
   .strict();
 
 export type CreateSalaryRevisionRequest = z.infer<typeof createSalaryRevisionSchema>;
+
+export const REPORT_GROUP_BY_FIELDS = ['country', 'department', 'level'] as const;
+export type ReportGroupBy = (typeof REPORT_GROUP_BY_FIELDS)[number];
+
+export const compensationReportQuerySchema = z.object({
+  country: z.enum(COUNTRY_CODES).optional(),
+  department: z.enum(DEPARTMENT_CODES).optional(),
+  level: z.enum(LEVEL_CODES).optional(),
+  status: z.enum(['active', 'inactive', 'all']).default('active'),
+  groupBy: z.enum(REPORT_GROUP_BY_FIELDS).optional(),
+});
+
+export type CompensationReportQuery = z.infer<typeof compensationReportQuerySchema>;
+
+export interface CompensationMetricsDto {
+  headcount: number;
+  totalAnnualBaseSalary: string;
+  medianAnnualBaseSalary: string | null;
+}
+
+export interface CompensationGroupRowDto extends CompensationMetricsDto {
+  key: string;
+  label: string;
+}
+
+export interface ReportFxBasisDto {
+  snapshotId: string;
+  asOfDate: string;
+  sourceLabel: string;
+}
+
+export interface CompensationReportResponse {
+  filters: {
+    country?: CountryCode;
+    department?: DepartmentCode;
+    level?: LevelCode;
+    status: 'active' | 'inactive' | 'all';
+    groupBy?: ReportGroupBy;
+  };
+  currency: CurrencyCode;
+  conversionApplied: boolean;
+  fxBasis: ReportFxBasisDto | null;
+  summary: CompensationMetricsDto;
+  groups: CompensationGroupRowDto[];
+  definitions: {
+    population: string;
+    totalAnnualBaseSalary: string;
+    median: string;
+    currencyBasis: string;
+  };
+}

@@ -17,6 +17,7 @@ import { checkDatabaseConnection } from './db/prisma.js';
 import { createEmployeeDirectoryRouter, createLookupsRouter } from './employees/directory.js';
 import type { WriteFaultHooks } from './employees/writes.js';
 import { AppError } from './errors.js';
+import { createReportsRouter } from './reports/compensation.js';
 
 export interface AppDependencies {
   config?: AppConfig;
@@ -103,6 +104,7 @@ export function createApp(deps: AppDependencies = {}) {
       sameOrigin,
       createEmployeeDirectoryRouter(deps.prisma, deps.writeFaultHooks),
     );
+    app.use('/api/reports', requireAuth, sameOrigin, createReportsRouter(deps.prisma));
   }
 
   // Serve built React bundle from the same origin when present.

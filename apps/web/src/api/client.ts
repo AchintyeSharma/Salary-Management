@@ -1,4 +1,6 @@
 import type {
+  CompensationReportQuery,
+  CompensationReportResponse,
   CreateEmployeeRequest,
   CreateSalaryRevisionRequest,
   EmployeeDetailDto,
@@ -135,4 +137,16 @@ export function createSalaryRevision(
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+export function fetchCompensationReport(
+  query: Partial<CompensationReportQuery>,
+): Promise<CompensationReportResponse> {
+  const params = new URLSearchParams();
+  if (query.country) params.set('country', query.country);
+  if (query.department) params.set('department', query.department);
+  if (query.level) params.set('level', query.level);
+  if (query.status) params.set('status', query.status);
+  if (query.groupBy) params.set('groupBy', query.groupBy);
+  return apiRequest<CompensationReportResponse>(`/api/reports/compensation?${params.toString()}`);
 }

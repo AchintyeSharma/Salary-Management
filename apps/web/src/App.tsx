@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { DirectoryPage } from './features/directory/DirectoryPage';
 import { EmployeeDetailPage } from './features/employees/EmployeeDetailPage';
+import { ReportsPage } from './features/reports/ReportsPage';
 import { appTheme } from './theme';
 
 function PlaceholderPage({ title, description }: { title: string; description: string }) {
@@ -50,15 +51,7 @@ function AuthenticatedRoutes() {
       <Routes>
         <Route path="/employees" element={<DirectoryPage />} />
         <Route path="/employees/:id" element={<EmployeeDetailPage />} />
-        <Route
-          path="/reports"
-          element={
-            <PlaceholderPage
-              title="Compensation Reports"
-              description="Cohort reporting by country, department, and level."
-            />
-          }
-        />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route
           path="/ask"
           element={
