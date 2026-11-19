@@ -1,18 +1,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import { ZodError } from 'zod';
 import { MoneyValidationError } from '@acme/contracts';
+import {
+  createRequireAuthMiddleware,
+  createSameOriginMiddleware,
+  createSessionRouter,
+} from './auth/session.js';
 import { loadConfig, type AppConfig } from './config.js';
+import { checkDatabaseConnection } from './db/prisma.js';
+import { createEmployeeDirectoryRouter, createLookupsRouter } from './employees/directory.js';
 import { AppError } from './errors.js';
 
 export interface AppDependencies {
   config?: AppConfig;
+  prisma?: PrismaClient;
   checkDatabase?: () => Promise<boolean>;
   staticDir?: string;
+  loginRateLimitMax?: number;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,11 +62,15 @@ export function createApp(deps: AppDependencies = {}) {
     next();
   });
 
+  const dbCheck =
+    deps.checkDatabase ??
+    (deps.prisma ? () => checkDatabaseConnection(deps.prisma!) : undefined);
+
   app.get('/api/health', async (_req, res) => {
     let database = 'skipped';
-    if (deps.checkDatabase) {
+    if (dbCheck) {
       try {
-        const ok = await deps.checkDatabase();
+        const ok = await dbCheck();
         database = ok ? 'ok' : 'unavailable';
       } catch {
         database = 'unavailable';
@@ -69,6 +83,20 @@ export function createApp(deps: AppDependencies = {}) {
       interpreterMode: config.payInterpreterMode,
     });
   });
+
+  if (deps.prisma) {
+    const requireAuth = createRequireAuthMiddleware(deps.prisma);
+    const sameOrigin = createSameOriginMiddleware(config);
+
+    app.use(
+      '/api/session',
+      createSessionRouter(deps.prisma, config, {
+        loginRateLimitMax: deps.loginRateLimitMax,
+      }),
+    );
+    app.use('/api/lookups', requireAuth, createLookupsRouter(deps.prisma));
+    app.use('/api/employees', requireAuth, sameOrigin, createEmployeeDirectoryRouter(deps.prisma));
+  }
 
   // Serve built React bundle from the same origin when present.
   const staticDir = deps.staticDir ?? DEFAULT_WEB_DIST;

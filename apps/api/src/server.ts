@@ -1,13 +1,10 @@
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
-import { checkDatabaseConnection, getPrismaClient } from './db/prisma.js';
+import { getPrismaClient } from './db/prisma.js';
 
 const config = loadConfig();
 const prisma = getPrismaClient();
-const app = createApp({
-  config,
-  checkDatabase: () => checkDatabaseConnection(prisma),
-});
+const app = createApp({ config, prisma });
 
 const server = app.listen(config.port, () => {
   console.log(
