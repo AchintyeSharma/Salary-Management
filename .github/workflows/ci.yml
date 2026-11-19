@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_DB: acme_test
+          POSTGRES_USER: acme_admin
+          POSTGRES_PASSWORD: ci_admin_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U acme_admin -d acme_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://acme_app:ci_app_password@localhost:5432/acme_test?schema=public
+      MIGRATION_DATABASE_URL: postgresql://acme_admin:ci_admin_password@localhost:5432/acme_test?schema=public
+      TEST_DATABASE_URL: postgresql://acme_admin:ci_admin_password@localhost:5432/acme_test?schema=public
+      TEST_APP_DATABASE_URL: postgresql://acme_app:ci_app_password@localhost:5432/acme_test?schema=public
+      COOKIE_SECURE: "false"
+      APP_ORIGIN: http://localhost:3000
+      PAY_INTERPRETER_MODE: deterministic
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Provision app role in PostgreSQL
+        run: |
+          PGPASSWORD=ci_admin_password psql -h localhost -U acme_admin -d acme_test -c "CREATE ROLE acme_app LOGIN PASSWORD 'ci_app_password';"
+          PGPASSWORD=ci_admin_password psql -h localhost -U acme_admin -d acme_test -c "GRANT CONNECT ON DATABASE acme_test TO acme_app; GRANT USAGE ON SCHEMA public TO acme_app;"
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:unit
+      - run: npm run test:integration

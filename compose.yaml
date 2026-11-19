@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-acme_salary}
+      POSTGRES_USER: ${POSTGRES_USER:-acme_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_admin_dev_pass}
+      APP_DB_USER: ${APP_DB_USER:-acme_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-local_app_dev_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-acme_admin} -d ${POSTGRES_DB:-acme_salary}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${APP_DB_USER:-acme_app}:${APP_DB_PASSWORD:-local_app_dev_pass}@postgres:5432/${POSTGRES_DB:-acme_salary}?schema=public
+      MIGRATION_DATABASE_URL: postgresql://${POSTGRES_USER:-acme_admin}:${POSTGRES_PASSWORD:-local_admin_dev_pass}@postgres:5432/${POSTGRES_DB:-acme_salary}?schema=public
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      PAY_INTERPRETER_MODE: ${PAY_INTERPRETER_MODE:-deterministic}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  pgdata:

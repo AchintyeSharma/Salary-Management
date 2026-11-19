@@ -1,0 +1,38 @@
+{
+  "name": "@acme/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test": "vitest run && vitest run --config vitest.integration.config.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "hr:provision": "tsx src/scripts/provision-hr.ts"
+  },
+  "dependencies": {
+    "@acme/contracts": "*",
+    "@prisma/client": "6.6.0",
+    "cookie-parser": "1.4.7",
+    "dotenv": "16.4.7",
+    "express": "4.21.2",
+    "helmet": "8.1.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.8",
+    "@types/express": "4.17.21",
+    "@types/node": "22.14.0",
+    "@types/supertest": "6.0.3",
+    "prisma": "6.6.0",
+    "supertest": "7.0.0",
+    "tsx": "4.19.3",
+    "typescript": "5.8.2",
+    "vitest": "3.0.9"
+  }
+}
