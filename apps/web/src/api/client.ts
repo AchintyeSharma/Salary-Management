@@ -10,6 +10,8 @@ import type {
   LookupsResponse,
   PatchEmployeeRequest,
   PayQuestionInterpretResponse,
+  RaiseCostPreviewRequest,
+  RaiseCostPreviewResponse,
   SalaryRevisionDto,
   SessionInfo,
 } from '@acme/contracts';
@@ -156,5 +158,14 @@ export function interpretPayQuestion(question: string): Promise<PayQuestionInter
   return apiRequest<PayQuestionInterpretResponse>('/api/pay-questions/interpret', {
     method: 'POST',
     body: JSON.stringify({ question }),
+  });
+}
+
+export function previewRaiseCost(
+  body: RaiseCostPreviewRequest,
+): Promise<RaiseCostPreviewResponse> {
+  return apiRequest<RaiseCostPreviewResponse>('/api/reports/raise-cost-preview', {
+    method: 'POST',
+    body: JSON.stringify(body),
   });
 }

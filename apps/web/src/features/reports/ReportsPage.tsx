@@ -102,13 +102,27 @@ export function ReportsPage() {
             Exact headcount, total annual gross base salary, and median across ACME cohorts.
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          component={RouterLink}
-          to={buildDirectoryUrl({ country, department, level, status })}
-        >
-          Open matching employees
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            component={RouterLink}
+            to={buildDirectoryUrl({ country, department, level, status })}
+          >
+            Open matching employees
+          </Button>
+          <Button
+            variant="contained"
+            component={RouterLink}
+            to={`/preview?${new URLSearchParams({
+              ...(country ? { country } : {}),
+              ...(department ? { department } : {}),
+              ...(level ? { level } : {}),
+              raisePercent: '5',
+            }).toString()}`}
+          >
+            Preview raise
+          </Button>
+        </Stack>
       </Stack>
 
       <Paper sx={{ p: 2 }}>

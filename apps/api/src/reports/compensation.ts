@@ -14,6 +14,7 @@ import {
   type ReportGroupBy,
 } from '@acme/contracts';
 import { AppError } from '../errors.js';
+import { runRaiseCostPreview } from './raise-preview.js';
 
 const COUNTRY_LABEL = new Map<string, string>(COUNTRIES.map((c) => [c.code, c.name]));
 const DEPT_LABEL = new Map<string, string>(DEPARTMENTS.map((d) => [d.code, d.name]));
@@ -267,6 +268,15 @@ export function createReportsRouter(prisma: PrismaClient): Router {
       const query = compensationReportQuerySchema.parse(req.query);
       const report = await runCompensationReport(prisma, query);
       res.status(200).json(report);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/raise-cost-preview', async (req, res, next) => {
+    try {
+      const preview = await runRaiseCostPreview(prisma, req.body);
+      res.status(200).json(preview);
     } catch (err) {
       next(err);
     }

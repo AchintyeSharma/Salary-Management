@@ -10,6 +10,8 @@ export const MIN_SALARY_MINOR = 1n; // Strictly positive (> 0.00)
 
 const DECIMAL_STRING_RE = /^\d+(?:\.\d{1,2})?$/;
 
+export const MAX_RAISE_PERCENT_BPS = 10_000n; // 100.00% expressed in hundredths of a percent (basis points)
+
 export class MoneyValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -117,4 +119,36 @@ export function computeExactMedianMinor(values: readonly bigint[]): bigint | nul
   const lower = sorted[mid - 1]!;
   const upper = sorted[mid]!;
   return divRoundHalfUpExact(lower + upper, 2n);
+}
+
+/**
+ * Parse a positive percentage string with up to 2 fractional digits (e.g. "5", "5.25")
+ * into exact integer basis points (hundredths of a percent, so "5" -> 500n, "5.25" -> 525n).
+ * Valid range: 0.01% to 100.00%.
+ */
+export function parseRaisePercentToBasisPoints(raw: string): bigint {
+  const trimmed = raw.trim();
+  if (!DECIMAL_STRING_RE.test(trimmed)) {
+    throw new MoneyValidationError(
+      'Raise percentage must be a positive decimal string with up to 2 decimal places.',
+    );
+  }
+  const [wholePart = '0', fracPart = ''] = trimmed.split('.');
+  const bps = BigInt(wholePart) * 100n + BigInt(fracPart.padEnd(2, '0'));
+  if (bps < 1n) {
+    throw new MoneyValidationError('Raise percentage must be greater than zero.');
+  }
+  if (bps > MAX_RAISE_PERCENT_BPS) {
+    throw new MoneyValidationError('Raise percentage cannot exceed 100.00%.');
+  }
+  return bps;
+}
+
+/**
+ * Project a single employee's native minor-unit salary for a percentage raise
+ * (expressed in basis points where 500n = 5.00%), rounding half-up to 1 native minor unit.
+ * Formula: round_half_up(currentMinor * (10000 + bps) / 10000)
+ */
+export function projectNativeSalaryMinorHalfUp(currentMinor: bigint, raiseBps: bigint): bigint {
+  return divRoundHalfUpExact(currentMinor * (10_000n + raiseBps), 10_000n);
 }

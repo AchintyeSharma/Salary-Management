@@ -246,11 +246,64 @@ export type PayQuestionUnsupportedReason =
 
 export interface PayQuestionInterpretResponse {
   mode: 'deterministic' | 'live';
-  outcome: 'report_intent' | 'clarification_needed' | 'unsupported';
+  outcome: 'report_intent' | 'preview_intent' | 'clarification_needed' | 'unsupported';
   summary: string;
   intent?: ValidatedReportIntent;
+  previewIntent?: ValidatedRaisePreviewIntent;
   clarificationPrompt?: string;
   options?: ValidatedReportIntent[];
   reasonCode?: PayQuestionUnsupportedReason;
   guidance?: string;
 }
+
+export const raiseCostPreviewRequestSchema = z
+  .object({
+    country: z.enum(COUNTRY_CODES).optional(),
+    department: z.enum(DEPARTMENT_CODES).optional(),
+    level: z.enum(LEVEL_CODES).optional(),
+    raisePercent: z.string().trim().min(1).max(16),
+  })
+  .strict();
+
+export type RaiseCostPreviewRequest = z.infer<typeof raiseCostPreviewRequestSchema>;
+
+export interface RaiseCostPreviewResponse {
+  filters: {
+    country?: CountryCode;
+    department?: DepartmentCode;
+    level?: LevelCode;
+    status: 'active';
+  };
+  raisePercent: string;
+  headcount: number;
+  currency: CurrencyCode;
+  conversionApplied: boolean;
+  fxBasis: ReportFxBasisDto | null;
+  currentAnnualSpend: string;
+  projectedAnnualSpend: string;
+  differenceAnnualSpend: string;
+  directoryPath: string;
+  definitions: {
+    population: string;
+    calculation: string;
+    currencyBasis: string;
+    readOnly: string;
+  };
+}
+
+export const validatedRaisePreviewIntentSchema = z.object({
+  filters: z.object({
+    country: z.enum(COUNTRY_CODES).optional(),
+    department: z.enum(DEPARTMENT_CODES).optional(),
+    level: z.enum(LEVEL_CODES).optional(),
+    status: z.literal('active'),
+  }),
+  raisePercent: z.string().trim().min(1).max(16),
+  expectedCurrency: z.enum(CURRENCY_CODES),
+  conversionExpected: z.boolean(),
+  label: z.string(),
+  previewPath: z.string(),
+  directoryPath: z.string(),
+});
+
+export type ValidatedRaisePreviewIntent = z.infer<typeof validatedRaisePreviewIntentSchema>;

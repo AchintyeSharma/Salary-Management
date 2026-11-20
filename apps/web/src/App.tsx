@@ -7,6 +7,7 @@ import { AskAboutPayPage } from './features/ask/AskAboutPayPage';
 import { LoginPage } from './features/auth/LoginPage';
 import { DirectoryPage } from './features/directory/DirectoryPage';
 import { EmployeeDetailPage } from './features/employees/EmployeeDetailPage';
+import { RaiseCostPreviewPage } from './features/preview/RaiseCostPreviewPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { appTheme } from './theme';
 
@@ -43,6 +44,7 @@ function AuthenticatedRoutes() {
         <Route path="/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/ask" element={<AskAboutPayPage />} />
+        <Route path="/preview" element={<RaiseCostPreviewPage />} />
         <Route path="/login" element={<Navigate to="/employees" replace />} />
         <Route path="*" element={<Navigate to="/employees" replace />} />
       </Routes>

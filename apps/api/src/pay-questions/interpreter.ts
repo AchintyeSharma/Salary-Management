@@ -4,7 +4,9 @@ import {
   COUNTRY_TO_CURRENCY,
   DEPARTMENTS,
   LEVELS,
+  parseRaisePercentToBasisPoints,
   payQuestionRequestSchema,
+  validatedRaisePreviewIntentSchema,
   validatedReportIntentSchema,
   type CountryCode,
   type CurrencyCode,
@@ -13,6 +15,7 @@ import {
   type PayQuestionInterpretResponse,
   type PayQuestionMetric,
   type ReportGroupBy,
+  type ValidatedRaisePreviewIntent,
   type ValidatedReportIntent,
 } from '@acme/contracts';
 import { createSimpleRateLimiter } from '../auth/session.js';
@@ -151,6 +154,63 @@ function buildValidatedIntent(params: {
   return validatedReportIntentSchema.parse(candidate);
 }
 
+function buildValidatedPreviewIntent(params: {
+  country?: CountryCode;
+  department?: DepartmentCode;
+  level?: LevelCode;
+  raisePercent: string;
+}): ValidatedRaisePreviewIntent {
+  // Validate percentage exact bounds/precision
+  parseRaisePercentToBasisPoints(params.raisePercent);
+
+  const conversionExpected = !params.country;
+  const expectedCurrency: CurrencyCode = conversionExpected
+    ? 'USD'
+    : COUNTRY_TO_CURRENCY[params.country!];
+
+  const previewSearch = new URLSearchParams();
+  const dirSearch = new URLSearchParams();
+  if (params.country) {
+    previewSearch.set('country', params.country);
+    dirSearch.set('country', params.country);
+  }
+  if (params.department) {
+    previewSearch.set('department', params.department);
+    dirSearch.set('department', params.department);
+  }
+  if (params.level) {
+    previewSearch.set('level', params.level);
+    dirSearch.set('level', params.level);
+  }
+  previewSearch.set('raisePercent', params.raisePercent);
+  dirSearch.set('status', 'active');
+
+  const cohortParts: string[] = ['active employees'];
+  if (params.department) cohortParts.push(DEPT_NAME.get(params.department) ?? params.department);
+  if (params.level) cohortParts.push(LEVEL_NAME.get(params.level) ?? params.level);
+  if (params.country) cohortParts.push(`in ${COUNTRY_NAME.get(params.country) ?? params.country}`);
+
+  return validatedRaisePreviewIntentSchema.parse({
+    filters: {
+      ...(params.country ? { country: params.country } : {}),
+      ...(params.department ? { department: params.department } : {}),
+      ...(params.level ? { level: params.level } : {}),
+      status: 'active',
+    },
+    raisePercent: params.raisePercent,
+    expectedCurrency,
+    conversionExpected,
+    label: `Preview ${params.raisePercent}% raise cost for ${cohortParts.join(' ')}`,
+    previewPath: `/preview?${previewSearch.toString()}`,
+    directoryPath: `/employees?${dirSearch.toString()}`,
+  });
+}
+
+const RAISE_PREVIEW_CUE_RE =
+  /\b(preview|estimate|estimated\s+cost|what\s+would|how\s+much\s+would|simulate|cost\s+of)\b.*\b(raise|increase)\b|\b(raise|increase)\b.*\b(cost|preview|estimate)\b/i;
+
+const PERCENT_EXTRACT_RE = /(\d+(?:\.\d{1,3})?)\s*(?:%|percent\b)/i;
+
 export class DeterministicPayQuestionInterpreter implements PayQuestionInterpreter {
   readonly mode = 'deterministic' as const;
 
@@ -278,6 +338,42 @@ export class DeterministicPayQuestionInterpreter implements PayQuestionInterpret
     const country = matchedCountries[0];
     const department = matchedDepts[0];
     const level = uniqueLevels[0];
+
+    // Read-only raise-cost preview intent (distinct from imperative write commands caught above)
+    if (RAISE_PREVIEW_CUE_RE.test(question)) {
+      const pctMatch = question.match(PERCENT_EXTRACT_RE);
+      if (!pctMatch?.[1]) {
+        return {
+          mode: this.mode,
+          outcome: 'unsupported',
+          reasonCode: 'UNRECOGNIZED',
+          summary: 'Please specify a positive percentage (up to 2 decimal places) to preview a raise cost.',
+          guidance: 'Example: "What would a 5% raise cost for Engineering in India?" or use the Raise Preview page.',
+        };
+      }
+      try {
+        const previewIntent = buildValidatedPreviewIntent({
+          country,
+          department,
+          level,
+          raisePercent: pctMatch[1],
+        });
+        return {
+          mode: this.mode,
+          outcome: 'preview_intent',
+          summary: `Ready to preview (read-only): ${previewIntent.label}.`,
+          previewIntent,
+        };
+      } catch (err) {
+        return {
+          mode: this.mode,
+          outcome: 'unsupported',
+          reasonCode: 'UNRECOGNIZED',
+          summary: err instanceof Error ? err.message : 'Invalid raise percentage.',
+          guidance: 'Enter a positive percentage between 0.01% and 100.00% (up to 2 decimals).',
+        };
+      }
+    }
 
     let status: 'active' | 'inactive' | 'all' = 'active';
     if (/\bincluding\s+inactive\b|\ball\s+employees\b/i.test(question)) {
@@ -417,6 +513,9 @@ export function createPayQuestionsRouter(
       // Server-side allowlist validation on every returned intent regardless of interpreter mode.
       if (result.outcome === 'report_intent' && result.intent) {
         result.intent = validatedReportIntentSchema.parse(result.intent);
+      }
+      if (result.outcome === 'preview_intent' && result.previewIntent) {
+        result.previewIntent = validatedRaisePreviewIntentSchema.parse(result.previewIntent);
       }
       if (result.outcome === 'clarification_needed' && result.options) {
         result.options = result.options.map((opt) => validatedReportIntentSchema.parse(opt));

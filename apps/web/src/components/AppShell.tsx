@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Employees', to: '/employees' },
   { label: 'Reports', to: '/reports' },
   { label: 'Ask about pay', to: '/ask' },
+  { label: 'Raise Preview', to: '/preview' },
 ];
 
 export function AppShell({ session, children }: AppShellProps) {

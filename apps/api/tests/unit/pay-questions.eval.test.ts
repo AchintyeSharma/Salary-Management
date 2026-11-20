@@ -11,7 +11,7 @@ const evalSuite = JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as {
   cases: Array<{
     id: string;
     question: string;
-    expectedOutcome: 'report_intent' | 'clarification_needed' | 'unsupported';
+    expectedOutcome: 'report_intent' | 'preview_intent' | 'clarification_needed' | 'unsupported';
     expectedReasonCode?: string;
     expectedIntent?: {
       metric: string;
@@ -20,6 +20,14 @@ const evalSuite = JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as {
       level?: string;
       status: string;
       groupBy?: string;
+      expectedCurrency: string;
+      conversionExpected: boolean;
+    };
+    expectedPreviewIntent?: {
+      country?: string;
+      department?: string;
+      level?: string;
+      raisePercent: string;
       expectedCurrency: string;
       conversionExpected: boolean;
     };
@@ -49,6 +57,19 @@ describe(`Deterministic Pay Question Evaluation Suite v${evalSuite.version}`, ()
         expect(res.intent!.filters.groupBy).toBe(tc.expectedIntent.groupBy);
         expect(res.intent!.expectedCurrency).toBe(tc.expectedIntent.expectedCurrency);
         expect(res.intent!.conversionExpected).toBe(tc.expectedIntent.conversionExpected);
+      }
+
+      if (tc.expectedPreviewIntent) {
+        expect(res.previewIntent).toBeDefined();
+        expect(res.previewIntent!.filters.country).toBe(tc.expectedPreviewIntent.country);
+        expect(res.previewIntent!.filters.department).toBe(tc.expectedPreviewIntent.department);
+        expect(res.previewIntent!.filters.level).toBe(tc.expectedPreviewIntent.level);
+        expect(res.previewIntent!.filters.status).toBe('active');
+        expect(res.previewIntent!.raisePercent).toBe(tc.expectedPreviewIntent.raisePercent);
+        expect(res.previewIntent!.expectedCurrency).toBe(tc.expectedPreviewIntent.expectedCurrency);
+        expect(res.previewIntent!.conversionExpected).toBe(
+          tc.expectedPreviewIntent.conversionExpected,
+        );
       }
     });
   }

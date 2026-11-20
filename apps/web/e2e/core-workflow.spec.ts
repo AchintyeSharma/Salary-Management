@@ -113,4 +113,21 @@ test('full core workflow on 10,000-employee seed', async ({ page }) => {
   );
   expect((await page.getByTestId('ask-total').textContent())?.trim()).toBe(afterReactTotalText);
   expect((await page.getByTestId('ask-median').textContent())?.trim()).toBe(afterReactMedianText);
+
+  // 8. Read-only Raise-Cost Preview parity with dashboard and matching directory cohort link
+  await page.goto('/preview?country=IN&department=ENG&raisePercent=5');
+  await expect(page.getByTestId('preview-headcount')).toBeVisible();
+  expect(parseHeadcount((await page.getByTestId('preview-headcount').textContent()) ?? '0')).toBe(
+    afterReactHeadcount,
+  );
+  expect((await page.getByTestId('preview-current-spend').textContent())?.trim()).toBe(
+    afterReactTotalText,
+  );
+
+  // Follow "Open matching employees" link and verify directory matches the exact active cohort count
+  await page.getByRole('link', { name: /Open matching employees/i }).click();
+  await expect(page.getByRole('heading', { name: /Employee Directory/i })).toBeVisible();
+  await expect(page.getByText(/matching employees/i)).toContainText(
+    afterReactHeadcount.toLocaleString(),
+  );
 });
