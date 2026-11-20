@@ -30,6 +30,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
   formatMoneyDisplay,
   parseSalaryToMinor,
+  type CurrencyCode,
   type DepartmentCode,
   type EmployeeSummaryDto,
   type LevelCode,
@@ -48,6 +49,16 @@ function generateRequestKey(): string {
     return `rev_${crypto.randomUUID().replace(/-/g, '')}`;
   }
   return `rev_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+interface PendingRevisionSnapshot {
+  employeeId: number;
+  expectedVersion: number;
+  reviewedCurrentSalary: string;
+  proposedSalary: string;
+  currencyCode: CurrencyCode;
+  reasonCode: Exclude<RevisionReasonCode, 'HIRE'>;
+  requestKey: string;
 }
 
 export function EmployeeDetailPage() {
@@ -78,12 +89,13 @@ export function EmployeeDetailPage() {
   // Status toggle confirmation state
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
-  // Salary revision form state
+  // Salary revision form state & frozen confirmation snapshot
   const [newSalary, setNewSalary] = useState('');
   const [reasonCode, setReasonCode] =
     useState<Exclude<RevisionReasonCode, 'HIRE'>>('MERIT');
   const [requestKey, setRequestKey] = useState<string>(() => generateRequestKey());
   const [confirmRevisionOpen, setConfirmRevisionOpen] = useState(false);
+  const [pendingRevision, setPendingRevision] = useState<PendingRevisionSnapshot | null>(null);
   const [revisionValidationError, setRevisionValidationError] = useState<string | null>(null);
 
   // Feedback banners
@@ -155,15 +167,16 @@ export function EmployeeDetailPage() {
   });
 
   const revisionMutation = useMutation({
-    mutationFn: () =>
-      createSalaryRevision(employeeId, {
-        expectedVersion: emp!.version,
-        newSalary: newSalary.trim(),
-        reasonCode,
-        requestKey,
+    mutationFn: (snapshot: PendingRevisionSnapshot) =>
+      createSalaryRevision(snapshot.employeeId, {
+        expectedVersion: snapshot.expectedVersion,
+        newSalary: snapshot.proposedSalary,
+        reasonCode: snapshot.reasonCode,
+        requestKey: snapshot.requestKey,
       }),
     onSuccess: async (result) => {
       setConfirmRevisionOpen(false);
+      setPendingRevision(null);
       setErrorBanner(null);
       setConflictEmployee(null);
       setRevisionValidationError(null);
@@ -178,7 +191,11 @@ export function EmployeeDetailPage() {
       );
     },
     onError: (err) => {
-      setConfirmRevisionOpen(false);
+      // On 409 conflict, close modal and clear snapshot so HR must review latest data before retrying
+      if (err instanceof ApiClientError && err.status === 409) {
+        setConfirmRevisionOpen(false);
+        setPendingRevision(null);
+      }
       handleMutationError(err);
     },
   });
@@ -217,6 +234,8 @@ export function EmployeeDetailPage() {
     event.preventDefault();
     setRevisionValidationError(null);
     setSuccessMessage(null);
+    setErrorBanner(null);
+    setConflictEmployee(null);
     try {
       const parsedNew = parseSalaryToMinor(newSalary);
       const parsedCurrent = parseSalaryToMinor(emp!.currentSalary);
@@ -224,6 +243,15 @@ export function EmployeeDetailPage() {
         setRevisionValidationError('New salary must differ from the current salary.');
         return;
       }
+      setPendingRevision({
+        employeeId: emp!.id,
+        expectedVersion: emp!.version,
+        reviewedCurrentSalary: emp!.currentSalary,
+        proposedSalary: newSalary.trim(),
+        currencyCode: emp!.salaryCurrency as CurrencyCode,
+        reasonCode,
+        requestKey: requestKey || generateRequestKey(),
+      });
       setConfirmRevisionOpen(true);
     } catch (err) {
       setRevisionValidationError(
@@ -577,52 +605,81 @@ export function EmployeeDetailPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Confirm Salary Revision Dialog */}
-      <Dialog
-        open={confirmRevisionOpen}
-        onClose={() => setConfirmRevisionOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Confirm Salary Revision</DialogTitle>
-        <DialogContent>
-          <Stack spacing={1.5} sx={{ mt: 0.5 }}>
-            <Typography variant="body2">
-              Employee: <strong>{emp.displayName}</strong> ({emp.employeeNumber})
-            </Typography>
-            <Typography variant="body2">
-              Current salary:{' '}
-              <strong>{formatMoneyDisplay(emp.currentSalary, emp.salaryCurrency)}</strong>
-            </Typography>
-            <Typography variant="body2">
-              Proposed salary:{' '}
-              <strong>
-                {newSalary.trim()
-                  ? formatMoneyDisplay(
-                      `${newSalary.trim().includes('.') ? newSalary.trim() : `${newSalary.trim()}.00`}`,
-                      emp.salaryCurrency,
-                    )
-                  : ''}
-              </strong>
-            </Typography>
-            <Typography variant="body2">
-              Reason: <strong>{reasonCode}</strong>
-            </Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmRevisionOpen(false)} disabled={revisionMutation.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disabled={revisionMutation.isPending}
-            onClick={() => revisionMutation.mutate()}
-          >
-            {revisionMutation.isPending ? 'Saving...' : 'Confirm & Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Confirm Salary Revision Dialog with frozen snapshot */}
+      {pendingRevision && (
+        <Dialog
+          open={confirmRevisionOpen}
+          onClose={() => {
+            if (!revisionMutation.isPending) {
+              setConfirmRevisionOpen(false);
+              setPendingRevision(null);
+            }
+          }}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Confirm Salary Revision</DialogTitle>
+          <DialogContent>
+            {revisionMutation.isError &&
+              !(
+                revisionMutation.error instanceof ApiClientError &&
+                revisionMutation.error.status === 409
+              ) && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {revisionMutation.error instanceof ApiClientError
+                    ? revisionMutation.error.message
+                    : 'Operation failed. You can retry safely.'}
+                </Alert>
+              )}
+            <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+              <Typography variant="body2">
+                Employee: <strong>{emp.displayName}</strong> ({emp.employeeNumber})
+              </Typography>
+              <Typography variant="body2">
+                Current salary:{' '}
+                <strong>
+                  {formatMoneyDisplay(
+                    pendingRevision.reviewedCurrentSalary,
+                    pendingRevision.currencyCode,
+                  )}
+                </strong>
+              </Typography>
+              <Typography variant="body2">
+                Proposed salary:{' '}
+                <strong>
+                  {formatMoneyDisplay(
+                    pendingRevision.proposedSalary.includes('.')
+                      ? pendingRevision.proposedSalary
+                      : `${pendingRevision.proposedSalary}.00`,
+                    pendingRevision.currencyCode,
+                  )}
+                </strong>
+              </Typography>
+              <Typography variant="body2">
+                Reason: <strong>{pendingRevision.reasonCode}</strong>
+              </Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setConfirmRevisionOpen(false);
+                setPendingRevision(null);
+              }}
+              disabled={revisionMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              disabled={revisionMutation.isPending}
+              onClick={() => revisionMutation.mutate(pendingRevision)}
+            >
+              {revisionMutation.isPending ? 'Saving...' : 'Confirm & Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Stack>
   );
 }
