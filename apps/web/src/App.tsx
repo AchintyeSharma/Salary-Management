@@ -1,24 +1,14 @@
-import { Box, CircularProgress, CssBaseline, Paper, ThemeProvider, Typography } from '@mui/material';
+import { Box, CircularProgress, CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { fetchSession } from './api/client';
 import { AppShell } from './components/AppShell';
+import { AskAboutPayPage } from './features/ask/AskAboutPayPage';
 import { LoginPage } from './features/auth/LoginPage';
 import { DirectoryPage } from './features/directory/DirectoryPage';
 import { EmployeeDetailPage } from './features/employees/EmployeeDetailPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { appTheme } from './theme';
-
-function PlaceholderPage({ title, description }: { title: string; description: string }) {
-  return (
-    <Paper sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>
-        {title}
-      </Typography>
-      <Typography color="text.secondary">{description}</Typography>
-    </Paper>
-  );
-}
 
 function AuthenticatedRoutes() {
   const sessionQuery = useQuery({
@@ -52,15 +42,7 @@ function AuthenticatedRoutes() {
         <Route path="/employees" element={<DirectoryPage />} />
         <Route path="/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="/reports" element={<ReportsPage />} />
-        <Route
-          path="/ask"
-          element={
-            <PlaceholderPage
-              title="Ask About Pay"
-              description="Plain-language compensation questions with report confirmation."
-            />
-          }
-        />
+        <Route path="/ask" element={<AskAboutPayPage />} />
         <Route path="/login" element={<Navigate to="/employees" replace />} />
         <Route path="*" element={<Navigate to="/employees" replace />} />
       </Routes>

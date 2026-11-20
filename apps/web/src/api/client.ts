@@ -9,6 +9,7 @@ import type {
   LoginRequest,
   LookupsResponse,
   PatchEmployeeRequest,
+  PayQuestionInterpretResponse,
   SalaryRevisionDto,
   SessionInfo,
 } from '@acme/contracts';
@@ -149,4 +150,11 @@ export function fetchCompensationReport(
   if (query.status) params.set('status', query.status);
   if (query.groupBy) params.set('groupBy', query.groupBy);
   return apiRequest<CompensationReportResponse>(`/api/reports/compensation?${params.toString()}`);
+}
+
+export function interpretPayQuestion(question: string): Promise<PayQuestionInterpretResponse> {
+  return apiRequest<PayQuestionInterpretResponse>('/api/pay-questions/interpret', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
 }

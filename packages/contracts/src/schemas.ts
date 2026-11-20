@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   COUNTRY_CODES,
+  CURRENCY_CODES,
   DEPARTMENT_CODES,
   LEVEL_CODES,
   USER_REVISION_REASON_CODES,
@@ -203,4 +204,53 @@ export interface CompensationReportResponse {
     median: string;
     currencyBasis: string;
   };
+}
+
+export const PAY_QUESTION_METRICS = ['headcount', 'total', 'median', 'overview'] as const;
+export type PayQuestionMetric = (typeof PAY_QUESTION_METRICS)[number];
+
+export const payQuestionRequestSchema = z
+  .object({
+    question: z.string().trim().min(3, 'Enter a compensation question.').max(300),
+  })
+  .strict();
+
+export type PayQuestionRequest = z.infer<typeof payQuestionRequestSchema>;
+
+export const validatedReportIntentSchema = z.object({
+  metric: z.enum(PAY_QUESTION_METRICS),
+  filters: z.object({
+    country: z.enum(COUNTRY_CODES).optional(),
+    department: z.enum(DEPARTMENT_CODES).optional(),
+    level: z.enum(LEVEL_CODES).optional(),
+    status: z.enum(['active', 'inactive', 'all']).default('active'),
+    groupBy: z.enum(REPORT_GROUP_BY_FIELDS).optional(),
+  }),
+  expectedCurrency: z.enum(CURRENCY_CODES),
+  conversionExpected: z.boolean(),
+  label: z.string(),
+  dashboardPath: z.string(),
+  directoryPath: z.string(),
+});
+
+export type ValidatedReportIntent = z.infer<typeof validatedReportIntentSchema>;
+
+export type PayQuestionUnsupportedReason =
+  | 'CONTAINS_IDENTIFIER'
+  | 'WRITE_REQUEST'
+  | 'EMPLOYEE_SPECIFIC'
+  | 'HISTORY_TREND'
+  | 'UNSUPPORTED_DIMENSION'
+  | 'UNSUPPORTED_OVERRIDE'
+  | 'UNRECOGNIZED';
+
+export interface PayQuestionInterpretResponse {
+  mode: 'deterministic' | 'live';
+  outcome: 'report_intent' | 'clarification_needed' | 'unsupported';
+  summary: string;
+  intent?: ValidatedReportIntent;
+  clarificationPrompt?: string;
+  options?: ValidatedReportIntent[];
+  reasonCode?: PayQuestionUnsupportedReason;
+  guidance?: string;
 }
