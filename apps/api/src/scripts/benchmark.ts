@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import os from 'node:os';
 import { createPrismaClient } from '../db/prisma.js';
 
 const BASE_URL = (process.env.BENCH_BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
@@ -181,10 +180,6 @@ async function main() {
     JSON.stringify(
       {
         environment: {
-          platform: `${os.platform()} ${os.release()}`,
-          cpus: os.cpus().length,
-          cpuModel: os.cpus()[0]?.model ?? 'unknown',
-          totalMemGb: Number((os.totalmem() / 1024 ** 3).toFixed(1)),
           baseUrl: BASE_URL,
           concurrency: CONCURRENCY,
           iterationsPerWorker: ITERATIONS_PER_WORKER,
