@@ -142,6 +142,71 @@
         "expectedCurrency": "USD",
         "conversionExpected": true
       }
+    },
+    {
+      "id": "preview-raise-negative-ascii",
+      "question": "What would a -5% raise cost for Engineering in India?",
+      "expectedOutcome": "unsupported",
+      "expectedReasonCode": "UNRECOGNIZED"
+    },
+    {
+      "id": "preview-raise-negative-unicode",
+      "question": "What would a \u22125% raise cost for Engineering in India?",
+      "expectedOutcome": "unsupported",
+      "expectedReasonCode": "UNRECOGNIZED"
+    },
+    {
+      "id": "preview-raise-inactive-agreement",
+      "question": "What would a 5% raise cost for inactive employees in India?",
+      "expectedOutcome": "clarification_needed"
+    },
+    {
+      "id": "unsupported-geography-south-africa",
+      "question": "What is the median annual base salary in South Africa?",
+      "expectedOutcome": "unsupported",
+      "expectedReasonCode": "UNSUPPORTED_DIMENSION"
+    },
+    {
+      "id": "unsupported-geography-kenya",
+      "question": "What is the median annual base salary in Kenya?",
+      "expectedOutcome": "unsupported",
+      "expectedReasonCode": "UNSUPPORTED_DIMENSION"
+    },
+    {
+      "id": "pronoun-us-not-country",
+      "question": "Show us the median annual base salary by department.",
+      "expectedOutcome": "report_intent",
+      "expectedIntent": {
+        "metric": "median",
+        "groupBy": "department",
+        "status": "active",
+        "expectedCurrency": "USD",
+        "conversionExpected": true
+      }
+    },
+    {
+      "id": "match-in-the-us",
+      "question": "What is the median annual base salary in the US?",
+      "expectedOutcome": "report_intent",
+      "expectedIntent": {
+        "metric": "median",
+        "country": "US",
+        "status": "active",
+        "expectedCurrency": "USD",
+        "conversionExpected": false
+      }
+    },
+    {
+      "id": "match-in-the-united-states",
+      "question": "What is the median annual base salary in the United States?",
+      "expectedOutcome": "report_intent",
+      "expectedIntent": {
+        "metric": "median",
+        "country": "US",
+        "status": "active",
+        "expectedCurrency": "USD",
+        "conversionExpected": false
+      }
     }
   ]
 }

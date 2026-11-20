@@ -73,4 +73,54 @@ describe(`Deterministic Pay Question Evaluation Suite v${evalSuite.version}`, ()
       }
     });
   }
+
+  describe('Audited interpretation regressions', () => {
+    it('rejects negative raise percentages with both ASCII and Unicode minus', async () => {
+      const asciiRes = await interpreter.interpret('What would a -5% raise cost for Engineering in India?');
+      expect(asciiRes.outcome).toBe('unsupported');
+      expect(asciiRes.reasonCode).toBe('UNRECOGNIZED');
+      expect(asciiRes.summary).toMatch(/negative raise percentages are not supported/i);
+
+      const unicodeRes = await interpreter.interpret('What would a \u22125% raise cost for Engineering in India?');
+      expect(unicodeRes.outcome).toBe('unsupported');
+      expect(unicodeRes.reasonCode).toBe('UNRECOGNIZED');
+      expect(unicodeRes.summary).toMatch(/negative raise percentages are not supported/i);
+    });
+
+    it('explains active-only support and requires explicit agreement for inactive raise previews', async () => {
+      const res = await interpreter.interpret('What would a 5% raise cost for inactive employees in India?');
+      expect(res.outcome).toBe('clarification_needed');
+      expect(res.summary).toMatch(/only support active employees/i);
+      expect(res.clarificationPrompt).toMatch(/explicit agreement is required/i);
+      expect(res.previewIntent).toBeDefined();
+      expect(res.previewIntent!.filters.status).toBe('active');
+    });
+
+    it('rejects unsupported geographies and never silently defaults to org-wide', async () => {
+      const saRes = await interpreter.interpret('What is the median annual base salary in South Africa?');
+      expect(saRes.outcome).toBe('unsupported');
+      expect(saRes.reasonCode).toBe('UNSUPPORTED_DIMENSION');
+      expect(saRes.intent).toBeUndefined();
+
+      const kenyaRes = await interpreter.interpret('What is the median annual base salary in Kenya?');
+      expect(kenyaRes.outcome).toBe('unsupported');
+      expect(kenyaRes.reasonCode).toBe('UNSUPPORTED_DIMENSION');
+      expect(kenyaRes.intent).toBeUndefined();
+    });
+
+    it('distinguishes pronoun "us" from country US and matches both "in the US" and "in the United States"', async () => {
+      const pronounRes = await interpreter.interpret('Show us the median annual base salary by department.');
+      expect(pronounRes.outcome).toBe('report_intent');
+      expect(pronounRes.intent!.filters.country).toBeUndefined();
+      expect(pronounRes.intent!.filters.groupBy).toBe('department');
+
+      const usRes = await interpreter.interpret('What is the median annual base salary in the US?');
+      expect(usRes.outcome).toBe('report_intent');
+      expect(usRes.intent!.filters.country).toBe('US');
+
+      const fullUsRes = await interpreter.interpret('What is the median annual base salary in the United States?');
+      expect(fullUsRes.outcome).toBe('report_intent');
+      expect(fullUsRes.intent!.filters.country).toBe('US');
+    });
+  });
 });

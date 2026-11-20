@@ -55,16 +55,48 @@ const EMPLOYEE_SPECIFIC_PATTERNS = [
 ];
 
 const UNSUPPORTED_COUNTRY_RE =
-  /\b(france|french|japan|japanese|canada|canadian|australia|australian|brazil|brazilian|singapore|spain|spanish|italy|italian|mexico|china|netherlands|ireland)\b/i;
+  /\b(south\s+africa|south\s+african|kenya|kenyan|nigeria|nigerian|ghana|ghanaian|egypt|egyptian|uae|dubai|brazil|brazilian|russia|russian|china|chinese|japan|japanese|korea|korean|singapore|australia|australian|new\s+zealand|canada|canadian|mexico|mexican|france|french|italy|italian|spain|spanish|switzerland|swiss|sweden|swedish|netherlands|dutch|ireland|irish|poland|polish|norway|norwegian|denmark|danish|finland|finnish|belgium|belgian|austria|austrian|portugal|portuguese|greece|greek|turkey|turkish|israel|israeli|saudi\s+arabia|saudi|argentina|chile|colombia|philippines|vietnam|thailand|indonesia|malaysia|pakistan|bangladesh)\b/i;
+
+const SUPPORTED_TERMS = new Set([
+  'the us', 'us', 'usa', 'u.s.', 'u.s.a.', 'united states', 'america', 'india', 'the uk', 'uk', 'u.k.', 'united kingdom',
+  'britain', 'england', 'germany', 'deutschland', 'engineering', 'engineers', 'product', 'design', 'designers', 'sales',
+  'operations', 'ops', 'finance', 'hr', 'people', 'human resources', 'all', 'active', 'inactive', 'country', 'countries',
+  'department', 'departments', 'dept', 'depts', 'level', 'levels', 'the company', 'the org', 'the organization', 'acme',
+  'total', 'median', 'headcount', 'salary', 'salaries', 'pay', 'compensation', 'dollars', 'rupees', 'pounds', 'euros',
+  'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7'
+]);
+
+function detectUnknownLocation(text: string): boolean {
+  const matches = text.matchAll(/\b(?:in|across)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g);
+  for (const m of matches) {
+    const candidate = m[1]!.toLowerCase().trim();
+    if (!SUPPORTED_TERMS.has(candidate)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function matchesUsCountry(question: string): boolean {
+  // Replace object pronouns: 'show us', 'tell us', 'give us', 'let us', 'send us', 'allow us', 'help us'
+  const sanitized = question.replace(
+    /\b(show|tell|give|let|send|allow|help|provide|inform)\s+us\b/gi,
+    '$1 __PRONOUN__',
+  );
+  const caseInsensitivePatterns =
+    /\b(united\s+states|u\.s\.a\.?|usa|u\.s\.|america|american)\b|\b(?:in|for|across|of|from|within)\s+(?:the\s+)?us\b|\bthe\s+us\b/i;
+  const uppercaseUs = /\bUS\b/;
+  return caseInsensitivePatterns.test(sanitized) || uppercaseUs.test(sanitized);
+}
 
 const UNSUPPORTED_GROUP_RE =
   /\b(by|per|across)\s+(manager|gender|age|tenure|city|office|location|title|job\s+title|hire\s+date|currency|team|role)\b/i;
 
-const COUNTRY_MATCHERS: { code: CountryCode; re: RegExp }[] = [
-  { code: 'US', re: /\b(united\s+states|u\.s\.a\.?|usa|u\.s\.|us|america|american)\b/i },
-  { code: 'IN', re: /\b(india|indian)\b/i },
-  { code: 'GB', re: /\b(united\s+kingdom|u\.k\.|uk|britain|british|england|gb)\b/i },
-  { code: 'DE', re: /\b(germany|german|deutschland)\b/i },
+const COUNTRY_MATCHERS: { code: CountryCode; matches: (q: string) => boolean }[] = [
+  { code: 'US', matches: matchesUsCountry },
+  { code: 'IN', matches: (q) => /\b(india|indian)\b/i.test(q) },
+  { code: 'GB', matches: (q) => /\b(united\s+kingdom|u\.k\.|uk|britain|british|england|gb)\b/i.test(q) },
+  { code: 'DE', matches: (q) => /\b(germany|german|deutschland)\b/i.test(q) },
 ];
 
 const DEPARTMENT_MATCHERS: { code: DepartmentCode; re: RegExp }[] = [
@@ -277,7 +309,11 @@ export class DeterministicPayQuestionInterpreter implements PayQuestionInterpret
     }
 
     // 6. Reject unknown countries or unsupported group-by dimensions explicitly
-    if (UNSUPPORTED_COUNTRY_RE.test(question) || UNSUPPORTED_GROUP_RE.test(question)) {
+    if (
+      UNSUPPORTED_COUNTRY_RE.test(question) ||
+      UNSUPPORTED_GROUP_RE.test(question) ||
+      detectUnknownLocation(question)
+    ) {
       return {
         mode: this.mode,
         outcome: 'unsupported',
@@ -290,7 +326,7 @@ export class DeterministicPayQuestionInterpreter implements PayQuestionInterpret
     }
 
     // Extract controlled filter dimensions
-    const matchedCountries = COUNTRY_MATCHERS.filter((m) => m.re.test(question)).map((m) => m.code);
+    const matchedCountries = COUNTRY_MATCHERS.filter((m) => m.matches(question)).map((m) => m.code);
     const matchedDepts = DEPARTMENT_MATCHERS.filter((m) => m.re.test(question)).map((m) => m.code);
     const levelMatches = [...question.matchAll(/\b(L[1-7])\b/gi)].map(
       (m) => m[1]!.toUpperCase() as LevelCode,
@@ -341,6 +377,18 @@ export class DeterministicPayQuestionInterpreter implements PayQuestionInterpret
 
     // Read-only raise-cost preview intent (distinct from imperative write commands caught above)
     if (RAISE_PREVIEW_CUE_RE.test(question)) {
+      // Check for negative percentage (both ASCII '-' and Unicode minus '−' \u2212)
+      if (/[-−\u2212]\s*\d+(?:\.\d+)?\s*(?:%|percent\b)/i.test(question)) {
+        return {
+          mode: this.mode,
+          outcome: 'unsupported',
+          reasonCode: 'UNRECOGNIZED',
+          summary: 'Negative raise percentages are not supported.',
+          guidance: 'Enter a positive percentage between 0.01% and 100.00% to preview raise costs.',
+        };
+      }
+
+      const asksInactive = /\binactive\b/i.test(question);
       const pctMatch = question.match(PERCENT_EXTRACT_RE);
       if (!pctMatch?.[1]) {
         return {
@@ -349,6 +397,24 @@ export class DeterministicPayQuestionInterpreter implements PayQuestionInterpret
           reasonCode: 'UNRECOGNIZED',
           summary: 'Please specify a positive percentage (up to 2 decimal places) to preview a raise cost.',
           guidance: 'Example: "What would a 5% raise cost for Engineering in India?" or use the Raise Preview page.',
+        };
+      }
+
+      if (asksInactive) {
+        const previewIntent = buildValidatedPreviewIntent({
+          country,
+          department,
+          level,
+          raisePercent: pctMatch[1],
+        });
+        return {
+          mode: this.mode,
+          outcome: 'clarification_needed',
+          summary:
+            'Raise cost previews only support active employees (inactive employees have no ongoing payroll cost).',
+          clarificationPrompt:
+            'Raise cost previews only support active employees. Explicit agreement is required before proceeding to preview this raise for active employees only.',
+          previewIntent,
         };
       }
       try {

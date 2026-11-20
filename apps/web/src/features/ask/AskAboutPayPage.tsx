@@ -223,33 +223,47 @@ export function AskAboutPayPage() {
         </Alert>
       )}
 
-      {interpretation?.outcome === 'clarification_needed' && !pendingIntent && (
-        <Paper sx={{ p: 3, borderLeft: '4px solid', borderColor: 'warning.main' }}>
-          <Typography variant="h6" gutterBottom>
-            Clarification needed
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {interpretation.summary}
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            {interpretation.clarificationPrompt}
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-            {interpretation.options?.map((option, idx) => (
-              <Button
-                key={idx}
-                variant="outlined"
-                onClick={() => {
-                  setPendingIntent(option);
-                  setConfirmedReport(null);
-                }}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </Stack>
-        </Paper>
-      )}
+      {interpretation?.outcome === 'clarification_needed' &&
+        !pendingIntent &&
+        !pendingPreviewIntent && (
+          <Paper sx={{ p: 3, borderLeft: '4px solid', borderColor: 'warning.main' }}>
+            <Typography variant="h6" gutterBottom>
+              Clarification needed
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {interpretation.summary}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {interpretation.clarificationPrompt}
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+              {interpretation.options?.map((option, idx) => (
+                <Button
+                  key={idx}
+                  variant="outlined"
+                  onClick={() => {
+                    setPendingIntent(option);
+                    setConfirmedReport(null);
+                  }}
+                >
+                  {option.label}
+                </Button>
+              ))}
+              {interpretation.previewIntent && (
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => {
+                    setPendingPreviewIntent(interpretation.previewIntent!);
+                    setConfirmedPreview(null);
+                  }}
+                >
+                  Agree &amp; Preview for Active Employees
+                </Button>
+              )}
+            </Stack>
+          </Paper>
+        )}
 
       {pendingIntent && (
         <Paper sx={{ p: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>
