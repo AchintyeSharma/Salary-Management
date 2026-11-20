@@ -13,7 +13,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx src/scripts/seed.ts",
-    "hr:provision": "tsx src/scripts/provision-hr.ts"
+    "hr:provision": "tsx src/scripts/provision-hr.ts",
+    "bench": "tsx src/scripts/benchmark.ts"
   },
   "dependencies": {
     "@acme/contracts": "*",

@@ -13,7 +13,9 @@
     "typecheck": "npm run typecheck --workspace=@acme/contracts && npm run typecheck --workspace=@acme/api && npm run typecheck --workspace=@acme/web",
     "test:unit": "npm run test:unit --workspace=@acme/contracts && npm run test:unit --workspace=@acme/api && npm run test --workspace=@acme/web",
     "test:integration": "npm run test:integration --workspace=@acme/api",
+    "test:e2e": "npm run test:e2e --workspace=@acme/web",
     "test": "npm run test:unit && npm run test:integration",
+    "bench": "npm run bench --workspace=@acme/api",
     "db:migrate": "npm run db:migrate --workspace=@acme/api",
     "db:seed": "npm run db:seed --workspace=@acme/api",
     "hr:provision": "npm run hr:provision --workspace=@acme/api"
