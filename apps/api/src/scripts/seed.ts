@@ -460,8 +460,12 @@ export async function runSeed(
 }
 
 // CLI entrypoint
-const isDirectExecution =
-  process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop()!);
+const isDirectExecution = Boolean(
+  process.argv[1] &&
+    (process.argv[1].endsWith('seed.js') ||
+      process.argv[1].endsWith('seed.ts') ||
+      import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop()!)),
+);
 
 if (isDirectExecution) {
   const dbUrl = process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;

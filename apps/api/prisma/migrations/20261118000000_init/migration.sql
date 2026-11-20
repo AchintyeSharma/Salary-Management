@@ -132,15 +132,18 @@ ALTER TABLE "fx_rates"
     ADD CONSTRAINT "fx_rates_snapshot_id_fkey"
     FOREIGN KEY ("snapshot_id") REFERENCES "fx_snapshots"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Restrict runtime application role (acme_app) to append-only access on salary_revisions.
+-- Ensure runtime application role (acme_app) exists before granting privileges.
 DO $$
 BEGIN
-    IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'acme_app') THEN
-        REVOKE ALL ON ALL TABLES IN SCHEMA public FROM acme_app;
-        GRANT SELECT, INSERT, UPDATE ON TABLE "employees", "hr_sessions" TO acme_app;
-        GRANT SELECT, INSERT ON TABLE "salary_revisions" TO acme_app;
-        GRANT SELECT ON TABLE "hr_accounts", "fx_snapshots", "fx_rates", "seed_markers" TO acme_app;
-        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO acme_app;
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'acme_app') THEN
+        CREATE ROLE acme_app LOGIN PASSWORD 'local_app_dev_pass';
     END IF;
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO acme_app', current_database());
+    GRANT USAGE ON SCHEMA public TO acme_app;
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM acme_app;
+    GRANT SELECT, INSERT, UPDATE ON TABLE "employees", "hr_sessions" TO acme_app;
+    GRANT SELECT, INSERT ON TABLE "salary_revisions" TO acme_app;
+    GRANT SELECT ON TABLE "hr_accounts", "fx_snapshots", "fx_rates", "seed_markers" TO acme_app;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO acme_app;
 END
 $$;

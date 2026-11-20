@@ -36,7 +36,7 @@ services:
           name: acme-salary-db
           property: connectionString
       - key: DATABASE_URL
-        sync: false # Set to restricted acme_app role connection string (or owner URL if managed host restricts role creation)
+        sync: false # Set to restricted acme_app role connection string (provisioned via migrations)
       - key: HR_DEMO_EMAIL
         value: hr.manager@acme.example
       - key: HR_DEMO_NAME
